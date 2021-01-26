@@ -2,7 +2,14 @@ package br.com.luizmonteiro.mypianotiles;
 
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.BitmapFont;
+import com.badlogic.gdx.graphics.g2d.GlyphLayout;
+import com.badlogic.gdx.graphics.g2d.Sprite;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.utils.Array;
 
@@ -11,6 +18,8 @@ import java.util.Random;
 public class MainClass extends ApplicationAdapter {
 
 	private ShapeRenderer shapeRenderer;
+	private SpriteBatch batch;
+	private Texture txtStart;
 
 	private Array<Row> rows;
 
@@ -19,18 +28,38 @@ public class MainClass extends ApplicationAdapter {
 	private int score;
 	private Random random;
 	private int status;
+	private Piano piano;
+	private BitmapFont font;
+	private GlyphLayout glyphLayout;
 
 	@Override
 	public void create () {
 
 		shapeRenderer = new ShapeRenderer();
+		batch = new SpriteBatch();
+		txtStart = new Texture("iniciar.png");
 		shapeRenderer.setAutoShapeType(true);
+		piano = new Piano("natal");
 
 		random = new Random();
 
 		rows = new Array<Row>();
+
+		glyphLayout = new GlyphLayout();
+
+		initFont();
 		initMusic();
 
+	}
+
+	public void initFont(){
+		FreeTypeFontGenerator.setMaxTextureSize(2048);
+		FreeTypeFontGenerator generator = new FreeTypeFontGenerator(Gdx.files.internal("font.ttf"));
+		FreeTypeFontGenerator.FreeTypeFontParameter parameter = new FreeTypeFontGenerator.FreeTypeFontParameter();
+		parameter.size = (int)(0.06f*Cons.screenY);
+		parameter.color = Color.CYAN;
+		font = generator.generateFont(parameter);
+		generator.dispose();
 	}
 
 	@Override
@@ -49,6 +78,17 @@ public class MainClass extends ApplicationAdapter {
 		}
 
 		shapeRenderer.end();
+
+
+		batch.begin();
+
+		if(status == 0) batch.draw(txtStart, 0, Cons.tileHeight/4, Cons.screenX, Cons.tileHeight/2);
+
+		font.draw(batch, String.valueOf(score), 0, Cons.screenY);
+
+		font.draw(batch, String.format("%.2f", Cons.currentSpeed/Cons.tileHeight), Cons.screenX-getWidth(font, String.format("%.2f", Cons.currentSpeed/Cons.tileHeight)), Cons.screenY);
+
+		batch.end();
 	}
 
 	private void input() {
@@ -66,7 +106,9 @@ public class MainClass extends ApplicationAdapter {
 						if(isRightTouched == 1 && i == indexInf){
 							score++;
 							indexInf++;
+							piano.play();
 						} else if(isRightTouched == 1 ){
+							rows.get(indexInf).error();
 							gameOver(0);
 						} else {
 							gameOver(0);
@@ -74,8 +116,7 @@ public class MainClass extends ApplicationAdapter {
 						break;
 					}
 				}
-			}
-			if(status == 2) initMusic();
+			}else if(status == 2) initMusic();
 		}
 	}
 
@@ -87,6 +128,7 @@ public class MainClass extends ApplicationAdapter {
 
 			for(int i=0 ; i<rows.size; i++){
 				int updateReturn = rows.get(i).updateSpeed(deltaTime);
+				rows.get(i).anim(deltaTime);
 
 				if(updateReturn != 0){
 					if(updateReturn == 1){
@@ -98,6 +140,10 @@ public class MainClass extends ApplicationAdapter {
 						gameOver(1);
 					}
 				}
+			}
+		} else if(status == 2){
+			for (Row r:rows){
+				r.anim(deltaTime);
 			}
 		}
 	}
@@ -120,6 +166,10 @@ public class MainClass extends ApplicationAdapter {
 		addRow();
 
 		status = 0;
+
+		Cons.currentSpeed = 0;
+
+		piano.reset();
 	}
 
 	private void gameOver(int opt) {
@@ -132,8 +182,17 @@ public class MainClass extends ApplicationAdapter {
 		}
 	}
 
+	private float getWidth(BitmapFont font, String text){
+		glyphLayout.reset();
+		glyphLayout.setText(font, text);
+		return glyphLayout.width;
+	}
+
 	@Override
 	public void dispose () {
 		shapeRenderer.dispose();
+		batch.dispose();
+		txtStart.dispose();
+		piano.dispose();
 	}
 }
